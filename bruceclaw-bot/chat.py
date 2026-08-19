@@ -1,121 +1,56 @@
 #!/usr/bin/env python3
 """
 BruceClaw Chat + Phone Control
-Single file. Port 8080. Talks to MiMo on port 9999.
+Imports MiMo brain directly, no subprocess piping.
+Port 8080. Talks to bruceclaw.py's brain in-process.
 """
-import os, json, time, subprocess, socket, base64
+import os, sys, json, time, subprocess, base64, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import unquote
 
 PORT = 8080
 HOME = os.path.expanduser("~")
 
-# Auto-start MiMo brain if not running
-def ensure_mimo():
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(2)
-        s.connect(("127.0.0.1", 9999))
-        s.close()
-        print("[OK] MiMo already running on port 9999")
-        return
-    except:
-        pass
-    print("[START] Starting MiMo brain on port 9999...")
-    mimo_dir = os.path.join(HOME, "bruceclaw")
-    if os.path.exists(os.path.join(mimo_dir, "bruceclaw.py")):
-        subprocess.Popen(
-            ["python3", "bruceclaw.py"],
-            cwd=mimo_dir,
-            stdout=open(os.devnull, "w"),
-            stderr=open(os.devnull, "w"),
-            start_new_session=True
-        )
-        time.sleep(3)
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(2)
-            s.connect(("127.0.0.1", 9999))
-            s.close()
-            print("[OK] MiMo started on port 9999")
-        except:
-            print("[WARN] MiMo started but not responding yet on port 9999")
-    else:
-        print("[ERROR] bruceclaw.py not found in", mimo_dir)
-
+# ============ PHONE CONTROL ============
 def run(cmd, t=10):
     try: return subprocess.run(cmd,shell=True,capture_output=True,text=True,timeout=t).stdout
     except: return "error"
 
-# Persistent MiMo process
-_mimo_proc = None
-_mimo_lock = threading.Lock()
+# ============ MIMO BRAIN (imported directly) ============
+sys.path.insert(0, os.path.join(HOME, "bruceclaw"))
+brain = None
+brain_ready = False
 
-def _ensure_mimo_running():
-    """Keep a persistent bruceclaw.py process running."""
-    global _mimo_proc
-    with _mimo_lock:
-        if _mimo_proc and _mimo_proc.poll() is None:
-            return _mimo_proc
-        mimo_dir = os.path.join(HOME, "bruceclaw")
-        bruceclaw_py = os.path.join(mimo_dir, "bruceclaw.py")
-        if not os.path.exists(bruceclaw_py):
-            return None
-        _mimo_proc = subprocess.Popen(
-            ["python3", "bruceclaw.py"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            cwd=mimo_dir,
-            bufsize=1
-        )
-        # Wait for welcome message
-        time.sleep(2)
-        # Read welcome output
-        import select
-        if hasattr(select, 'select'):
-            ready, _, _ = select.select([_mimo_proc.stdout], [], [], 3)
-            if ready:
-                welcome = _mimo_proc.stdout.readline()
-        return _mimo_proc
+def init_brain():
+    global brain, brain_ready
+    try:
+        from bruceclaw import BruceClawBrain
+        brain = BruceClawBrain()
+        # Wait for LLM to connect (up to 15 seconds)
+        for i in range(15):
+            if brain.llm_ready:
+                brain_ready = True
+                print("[OK] MiMo LLM connected")
+                return
+            time.sleep(1)
+        # LLM didn't connect in time, but brain still works with local commands
+        brain_ready = True
+        print("[WARN] MiMo LLM not connected yet, local commands only")
+    except Exception as e:
+        print(f"[ERROR] Failed to load MiMo brain: {e}")
 
 def mimo_chat(msg):
-    """Talk to persistent MiMo process."""
+    global brain, brain_ready
+    if not brain:
+        return "MiMo brain not loaded"
+    if not brain_ready:
+        return "MiMo is starting up, try again in a few seconds"
     try:
-        proc = _ensure_mimo_running()
-        if not proc:
-            return "bruceclaw.py not found"
-        if proc.poll() is not None:
-            return "MiMo process died, restarting..."
-        # Send message
-        proc.stdin.write(msg + "\n")
-        proc.stdin.flush()
-        # Read response (wait for "bot> " line)
-        response_lines = []
-        import select
-        deadline = time.time() + 25
-        while time.time() < deadline:
-            ready, _, _ = select.select([proc.stdout], [], [], 2)
-            if ready:
-                line = proc.stdout.readline()
-                if not line:
-                    break
-                line = line.strip()
-                if line.startswith("bot> "):
-                    response_lines.append(line[5:])
-                    break
-                elif line.startswith("you>"):
-                    continue
-                elif line and "LLM" not in line and "APK" not in line and "Connected" not in line:
-                    response_lines.append(line)
-            else:
-                if response_lines:
-                    break
-        return "\n".join(response_lines) if response_lines else "MiMo is thinking..."
+        return brain.handle_input(msg)
     except Exception as e:
         return f"Error: {e}"
 
+# ============ HTTP SERVER ============
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         p = unquote(self.path)
@@ -167,7 +102,7 @@ class H(BaseHTTPRequestHandler):
             out = run("wm size")
             try: sz = out.split(":")[-1].strip()
             except: sz = "?"
-            self.js({"ok":True,"screen":sz})
+            self.js({"ok":True,"screen":sz,"mimo":brain_ready})
         else: self.js({"err":"unknown"},404)
 
     def do_POST(self):
@@ -212,6 +147,7 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:f
 #h{background:#181818;padding:10px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #ff6600}
 #h h1{font-size:20px;color:#ff6600}
 .st{font-size:11px;color:#0f8;background:#1a1a2e;padding:3px 8px;border-radius:8px}
+.st.off{color:#f44}
 #c{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
 .m{max-width:85%;padding:10px 14px;border-radius:12px;font-size:16px;line-height:1.4;white-space:pre-wrap;word-wrap:break-word}
 .mu{align-self:flex-end;background:#ff6600;color:#fff}
@@ -221,32 +157,23 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:f
 #i{padding:8px;background:#181818;border-top:2px solid #ff6600;display:flex;gap:6px}
 #i input{flex:1;background:#222;border:1px solid #444;color:#fff;padding:10px;border-radius:10px;font-size:16px}
 #i button{background:#ff6600;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:15px;font-weight:700}
-#n{display:flex;background:#111;border-top:1px solid #333}
-#n a{flex:1;text-align:center;padding:10px;color:#666;text-decoration:none;font-size:13px;font-weight:700}
-#n a.on{color:#ff6600}
-#ctl{padding:8px;background:#181818;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;display:none}
-.b{background:#222;color:#ff6600;border:1px solid #ff6600;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
-#si{width:100%;border-radius:8px;border:1px solid #333;display:none;margin-bottom:8px}
 </style></head><body>
-<div id="h"><h1>BRUCECLAW</h1><span class="st" id="st">...</span></div>
-<div id="c"><div class="mb">Type below to talk to MiMo.</div></div>
+<div id="h"><h1>BRUCECLAW</h1><span class="st off" id="st">Loading MiMo...</span></div>
+<div id="c"><div class="mb">Connecting to MiMo...</div></div>
 <div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button></div>
-<div id="ctl"><img id="si"><button class="b" onclick="ss()">SCREEN</button><button class="b" onclick="go('/answer')">ANSWER</button><button class="b" onclick="go('/hangup')">HANGUP</button><button class="b" onclick="go('/home')">HOME</button><button class="b" onclick="go('/back')">BACK</button><button class="b" onclick="go('/scroll/down')">SCROLL DN</button></div>
-<div id="n"><a href="/" class="on">CHAT</a><a href="/?phone=1">PHONE</a></div>
 <script>
-var phone=location.search.includes("phone=1");
-if(phone){document.getElementById("n").children[0].className="";document.getElementById("n").children[1].className="on";document.getElementById("ctl").style.display="flex";document.getElementById("si").style.display="block";}
 function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
-function go(u){fetch(u).then(r=>r.json()).then(d=>add(JSON.stringify(d),"mi"));}
-function ss(){fetch("/screenshot").then(r=>r.json()).then(d=>{if(d.img){var i=document.getElementById("si");i.src="data:image/png;base64,"+d.img;i.style.display="block";}});}
-fetch("/status").then(r=>r.json()).then(d=>{document.getElementById("st").textContent="OK "+d.screen;}).catch(()=>{document.getElementById("st").textContent="OFFLINE";});
+function checkStatus(){fetch("/status").then(r=>r.json()).then(d=>{var s=document.getElementById("st");if(d.mimo){s.textContent="MiMo READY";s.className="st";}else{s.textContent="MiMo starting...";s.className="st off";setTimeout(checkStatus,3000);}}).catch(()=>{document.getElementById("st").textContent="OFFLINE";});}
+fetch("/status").then(r=>r.json()).then(d=>{document.getElementById("c").innerHTML="";if(d.mimo){add("MiMo ready. Type a message.","mb");document.getElementById("st").textContent="MiMo READY";document.getElementById("st").className="st";}else{add("MiMo is loading the LLM... this takes a few seconds.","mi");checkStatus();}});
 </script></body></html>"""
 
 if __name__ == "__main__":
     print("BruceClaw Chat + Phone Control")
     print(f"Chat: http://localhost:{PORT}")
-    print(f"Phone: http://localhost:{PORT}?phone=1")
-    ensure_mimo()  # Check if MiMo is running, start if not
+    print("Loading MiMo brain...")
+    t = threading.Thread(target=init_brain, daemon=True)
+    t.start()
+    print(f"Server starting on port {PORT}")
     HTTPServer(("0.0.0.0",PORT),H).serve_forever()
