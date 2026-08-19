@@ -332,23 +332,23 @@ CHAT = """<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"><title>BruceClaw</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-#h{background:#181818;padding:10px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #ff6600}
-#h h1{font-size:20px;color:#ff6600}
-.st{font-size:11px;color:#0f8;background:#1a1a2e;padding:3px 8px;border-radius:8px}
+body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100dvh;display:flex;flex-direction:column;overflow:hidden;margin:0}
+#h{background:#181818;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #ff6600;flex-shrink:0}
+#h h1{font-size:16px;color:#ff6600;margin:0}
+.st{font-size:10px;color:#0f8;background:#1a1a2e;padding:2px 6px;border-radius:8px}
 .st.off{color:#f44}
-#c{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
-.m{max-width:85%;padding:10px 14px;border-radius:12px;font-size:16px;line-height:1.4;white-space:pre-wrap;word-wrap:break-word}
+#c{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:6px;min-height:0}
+.m{max-width:85%;padding:8px 12px;border-radius:10px;font-size:14px;line-height:1.3;white-space:pre-wrap;word-wrap:break-word}
 .mu{align-self:flex-end;background:#ff6600;color:#fff}
 .mb{align-self:flex-start;background:#222;color:#eee;border:1px solid #333}
-.me{border-color:#f44;color:#f88;font-size:13px}
-.mi{border-color:#0f8;color:#0f8;font-size:13px}
-#i{padding:8px;background:#181818;border-top:2px solid #ff6600;display:flex;gap:6px}
-#i input{flex:1;background:#222;border:1px solid #444;color:#fff;padding:10px;border-radius:10px;font-size:16px}
-#i button{background:#ff6600;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:15px;font-weight:700}
+.me{border-color:#f44;color:#f88;font-size:12px}
+.mi{border-color:#0f8;color:#0f8;font-size:12px}
+#i{padding:6px;background:#181818;border-top:2px solid #ff6600;display:flex;gap:4px;flex-shrink:0}
+#i input{flex:1;background:#222;border:1px solid #444;color:#fff;padding:8px;border-radius:8px;font-size:14px;min-width:0}
+#i button{background:#ff6600;color:#fff;border:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;flex-shrink:0}
 </style></head><body>
 <div id="h"><h1>BRUCECLAW</h1><span class="st off" id="st">Loading MiMo...</span></div>
-<div id="avatar" style="position:relative;width:200px;height:200px;margin:0 auto;border-radius:50%;overflow:hidden;border:3px solid #ff6600;box-shadow:0 0 30px rgba(255,102,0,0.3)">
+<div id="avatar" style="position:relative;width:120px;height:120px;margin:0 auto;border-radius:50%;overflow:hidden;border:3px solid #ff6600;box-shadow:0 0 15px rgba(255,102,0,0.3)">
 <img id="avatarImg" src="https://files.catbox.moe/jno288.jpg" style="width:100%;height:100%;object-fit:cover;transition:transform 0.3s">
 <div id="mouthOverlay" style="position:absolute;bottom:28%;left:50%;transform:translateX(-50%);width:40px;height:8px;background:#ff6600;border-radius:50%;opacity:0;transition:all 0.1s"></div>
 <div id="blinkL" style="position:absolute;top:32%;left:22%;width:22px;height:10px;background:#0a0a0a;border-radius:50%;opacity:0"></div>
@@ -358,7 +358,7 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:f
 <div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button><button id="contbtn" onclick="toggleContinuous()" style="font-size:11px">🔄</button></div>
 <script>
 function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;
-if(c==="mb"){raisedBrows();startTalking();setTimeout(stopTalking,Math.min(t.length*50,3000));}}
+if(c==="mb"){startTalking();setTimeout(stopTalking,Math.min(t.length*50,3000));}}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
 // === AVATAR ANIMATION ===
