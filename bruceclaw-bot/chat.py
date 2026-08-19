@@ -53,7 +53,53 @@ def mimo_chat(msg):
     if not brain_ready:
         return "MiMo is starting up, try again in a few seconds"
     try:
-        return brain.handle_input(msg)
+        reply = brain.handle_input(msg)
+        # Execute actions MiMo mentions
+        import re
+        lower = reply.lower()
+        action_done = ""
+        # Open app
+        m = re.search(r'open(?:ing)?\s+(youtube|chrome|whatsapp|telegram|settings|camera|maps|phone|gallery|files|play store)', lower)
+        if m:
+            apps = {"youtube":"com.google.android.youtube","chrome":"com.android.chrome","whatsapp":"com.whatsapp","telegram":"org.telegram.messenger","settings":"com.android.settings","camera":"com.android.camera","maps":"com.google.android.apps.maps","phone":"com.google.android.dialer","gallery":"com.google.android.apps.photos","files":"com.google.android.apps.nbu.files","play store":"com.android.vending"}
+            pkg = apps.get(m.group(1).strip(), m.group(1).strip())
+            run(f"monkey -p {pkg} -c android.intent.category.LAUNCHER 1")
+            action_done = "\n✅ Opened " + m.group(1)
+        elif "answer" in lower and ("call" in lower or "phone" in lower):
+            run("input keyevent 5")
+            action_done = "\n✅ Answered call"
+        elif "hang" in lower and "up" in lower:
+            run("input keyevent 6")
+            action_done = "\n✅ Hung up"
+        elif "go home" in lower:
+            run("input keyevent 3")
+            action_done = "\n✅ Home"
+        elif "go back" in lower:
+            run("input keyevent 4")
+            action_done = "\n✅ Back"
+        elif re.search(r'scroll\s+(up|down)', lower):
+            d = re.search(r'scroll\s+(up|down)', lower).group(1)
+            w,h = 1080,2400
+            try:
+                out = run("wm size")
+                w,h = [int(x) for x in out.split(":")[-1].strip().split("x")]
+            except: pass
+            cy = int(h*0.7) if d=="down" else int(h*0.3)
+            ey = int(h*0.3) if d=="down" else int(h*0.7)
+            run(f"input swipe {w//2} {cy} {w//2} {ey} 400")
+            action_done = f"\n✅ Scrolled {d}"
+        elif "take a photo" in lower or "open camera" in lower:
+            run("am start -a android.media.action.STILL_IMAGE_CAMERA")
+            action_done = "\n✅ Camera opened"
+        elif re.search(r'search\s+(?:for\s+)?(.+)', lower):
+            q = re.search(r'search\s+(?:for\s+)?(.+)', lower).group(1).strip()
+            run(f"am start -a android.intent.action.VIEW -d 'https://www.google.com/search?q={q}'")
+            action_done = f"\n✅ Searching: {q}"
+        elif re.search(r'call\s+(\d+)', lower):
+            num = re.search(r'call\s+(\d+)', lower).group(1)
+            run(f"am start -a android.intent.action.DIAL -d tel:{num}")
+            action_done = f"\n✅ Calling {num}"
+        return reply + action_done
     except Exception as e:
         return f"Error: {e}"
 
