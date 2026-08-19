@@ -20,6 +20,14 @@ def run(cmd, t=10):
     try: return subprocess.run(cmd,shell=True,capture_output=True,text=True,timeout=t).stdout
     except: return "error"
 
+def speak(text):
+    """Non-blocking TTS via termux-tts-speak."""
+    cleaned = re.sub(r'[^a-zA-Z0-9 .,!?-]', '', text)[:200]
+    if not cleaned: return
+    try:
+        subprocess.Popen(["termux-tts-speak", cleaned], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except: pass
+
 # ============ MIMO BRAIN ============
 sys.path.insert(0, os.path.join(HOME, "bruceclaw"))
 brain = None
@@ -162,7 +170,7 @@ class H(BaseHTTPRequestHandler):
             txt = d.get("text","").replace("'","'\\''")
             run(f"input text '{txt}'")
             self.js({"ok":True})
-        elif p == "/tts": run(f"termux-tts-speak '{d.get('text','')}'"); self.js({"ok":True})
+        elif p == "/tts": speak(d.get('text','')); self.js({"ok":True})
         elif p == "/voice":
             audio_b64 = d.get("audio", "")
             if not audio_b64: self.js({"err":"no audio"}); return
@@ -181,7 +189,7 @@ class H(BaseHTTPRequestHandler):
                 if not transcript: self.js({"ok":True,"transcript":"","reply":"Couldn't understand"}); return
                 reply = mimo_chat(transcript)
                 clean = re.sub(r'<think>.*?</think>\n?\n?', '', reply, flags=re.DOTALL).strip()
-                if clean: run(f"termux-tts-speak '{clean[:200]}'")
+                if clean: speak(clean[:200])
                 self.js({"ok":True,"transcript":transcript,"reply":reply})
             except Exception as e: self.js({"err":str(e)})
         else: self.js({"err":"unknown"},404)
