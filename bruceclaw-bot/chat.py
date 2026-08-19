@@ -348,12 +348,38 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:f
 #i button{background:#ff6600;color:#fff;border:none;padding:10px 18px;border-radius:10px;font-size:15px;font-weight:700}
 </style></head><body>
 <div id="h"><h1>BRUCECLAW</h1><span class="st off" id="st">Loading MiMo...</span></div>
+<div id="avatar" style="position:relative;width:200px;height:200px;margin:0 auto;border-radius:50%;overflow:hidden;border:3px solid #ff6600;box-shadow:0 0 30px rgba(255,102,0,0.3)">
+<img id="avatarImg" src="https://files.catbox.moe/jno288.jpg" style="width:100%;height:100%;object-fit:cover;transition:transform 0.3s">
+<div id="mouthOverlay" style="position:absolute;bottom:28%;left:50%;transform:translateX(-50%);width:40px;height:8px;background:#ff6600;border-radius:50%;opacity:0;transition:all 0.1s"></div>
+<div id="blinkL" style="position:absolute;top:32%;left:22%;width:22px;height:10px;background:#0a0a0a;border-radius:50%;opacity:0"></div>
+<div id="blinkR" style="position:absolute;top:32%;right:22%;width:22px;height:10px;background:#0a0a0a;border-radius:50%;opacity:0"></div>
+</div>
 <div id="c"><div class="mb">Connecting to MiMo...</div></div>
 <div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button><button id="contbtn" onclick="toggleContinuous()" style="font-size:11px">🔄</button></div>
 <script>
-function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;}
+function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;
+if(c==="mb"){raisedBrows();startTalking();setTimeout(stopTalking,Math.min(t.length*50,3000));}}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
+// === AVATAR ANIMATION ===
+var talking=false;
+function blink(){var l=document.getElementById("blinkL"),r=document.getElementById("blinkR");if(!l)return;
+l.style.opacity="1";r.style.opacity="1";setTimeout(function(){l.style.opacity="0";r.style.opacity="0";},150);}
+setInterval(function(){if(Math.random()>0.6)blink();},3500);
+function startTalking(){talking=true;animateMouth();var img=document.getElementById("avatarImg");if(img)img.style.transform="scale(1.02)";}
+function stopTalking(){talking=false;var m=document.getElementById("mouthOverlay");if(m)m.style.opacity="0";
+var img=document.getElementById("avatarImg");if(img)img.style.transform="scale(1)";}
+function animateMouth(){if(!talking)return;var m=document.getElementById("mouthOverlay");if(!m)return;
+var h=Math.random()*14+4;var w=30+Math.random()*20;
+m.style.opacity="0.9";m.style.height=h+"px";m.style.width=w+"px";
+m.style.borderRadius=h>10?"40%":"50%";
+setTimeout(animateMouth,80+Math.random()*60);}
+function lookAround(){var img=document.getElementById("avatarImg");if(!img)return;
+var rx=(Math.random()-0.5)*3;var ry=(Math.random()-0.5)*2;
+img.style.transform="rotate("+rx+"deg) scale(1.01)";
+setTimeout(function(){img.style.transform="rotate(0deg) scale(1)";},2500);}
+setInterval(lookAround,6000);
+
 function checkStatus(){fetch("/status").then(r=>r.json()).then(d=>{var s=document.getElementById("st");if(d.mimo){s.textContent="MiMo READY";s.className="st";}else{s.textContent="MiMo starting...";s.className="st off";setTimeout(checkStatus,3000);}}).catch(()=>{document.getElementById("st").textContent="OFFLINE";});}
 fetch("/status").then(r=>r.json()).then(d=>{document.getElementById("c").innerHTML="";if(d.mimo){add("MiMo ready. Type a message or tap 🎤 to talk.","mb");document.getElementById("st").textContent="MiMo READY";document.getElementById("st").className="st";}else{add("MiMo is loading the LLM... this takes a few seconds.","mi");checkStatus();}});
 var mediaRecorder=null;var audioChunks=[];var continuousMode=false;var stream=null;
