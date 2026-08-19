@@ -21,7 +21,7 @@ class LLMClient:
             "temperature": 0.7,
             "max_tokens": 1024,
         })
-        tmp = "/tmp/llm_payload.json"
+        tmp = "$HOME/llm_payload.json"
         open(tmp, "w").write(payload)
         r = subprocess.run(
             ["curl", "-s", "--max-time", "30", "-X", "POST", self.endpoint,
