@@ -47,42 +47,72 @@ def run(cmd, t=10):
     try: return subprocess.run(cmd,shell=True,capture_output=True,text=True,timeout=t).stdout
     except: return "error"
 
-def mimo_chat(msg):
-    """Talk to MiMo by running bruceclaw.py with the message as input."""
-    mimo_dir = os.path.join(HOME, "bruceclaw")
-    bruceclaw_py = os.path.join(mimo_dir, "bruceclaw.py")
-    if not os.path.exists(bruceclaw_py):
-        return "bruceclaw.py not found at " + bruceclaw_py
-    try:
-        result = subprocess.run(
+# Persistent MiMo process
+_mimo_proc = None
+_mimo_lock = threading.Lock()
+
+def _ensure_mimo_running():
+    """Keep a persistent bruceclaw.py process running."""
+    global _mimo_proc
+    with _mimo_lock:
+        if _mimo_proc and _mimo_proc.poll() is None:
+            return _mimo_proc
+        mimo_dir = os.path.join(HOME, "bruceclaw")
+        bruceclaw_py = os.path.join(mimo_dir, "bruceclaw.py")
+        if not os.path.exists(bruceclaw_py):
+            return None
+        _mimo_proc = subprocess.Popen(
             ["python3", "bruceclaw.py"],
-            input=msg + "\nquit\n",
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            timeout=30,
-            cwd=mimo_dir
+            cwd=mimo_dir,
+            bufsize=1
         )
-        output = result.stdout + result.stderr
-        # Extract bot responses (lines after "bot> ")
-        lines = output.split("\n")
-        replies = []
-        for line in lines:
-            line = line.strip()
-            if line.startswith("bot> "):
-                replies.append(line[5:])
-            elif line.startswith("you>") or line.startswith("~/") or not line:
-                continue
-            elif "LLM" in line or "Connected" in line or "Error" in line or "APK" in line:
-                continue
-            elif line in ("Hey, I'm BruceClaw.", "Say my name or type a command. Type 'help' for what I can do.",
-                         "I can control your phone — open apps, tap, type, scroll, swipe.",
-                         "Goodbye."):
-                continue
-            elif replies:  # Only add non-system lines after we have replies
-                replies.append(line)
-        return "\n".join(replies) if replies else output.strip()[-500:]
-    except subprocess.TimeoutExpired:
-        return "MiMo timed out (30s)"
+        # Wait for welcome message
+        time.sleep(2)
+        # Read welcome output
+        import select
+        if hasattr(select, 'select'):
+            ready, _, _ = select.select([_mimo_proc.stdout], [], [], 3)
+            if ready:
+                welcome = _mimo_proc.stdout.readline()
+        return _mimo_proc
+
+def mimo_chat(msg):
+    """Talk to persistent MiMo process."""
+    try:
+        proc = _ensure_mimo_running()
+        if not proc:
+            return "bruceclaw.py not found"
+        if proc.poll() is not None:
+            return "MiMo process died, restarting..."
+        # Send message
+        proc.stdin.write(msg + "\n")
+        proc.stdin.flush()
+        # Read response (wait for "bot> " line)
+        response_lines = []
+        import select
+        deadline = time.time() + 25
+        while time.time() < deadline:
+            ready, _, _ = select.select([proc.stdout], [], [], 2)
+            if ready:
+                line = proc.stdout.readline()
+                if not line:
+                    break
+                line = line.strip()
+                if line.startswith("bot> "):
+                    response_lines.append(line[5:])
+                    break
+                elif line.startswith("you>"):
+                    continue
+                elif line and "LLM" not in line and "APK" not in line and "Connected" not in line:
+                    response_lines.append(line)
+            else:
+                if response_lines:
+                    break
+        return "\n".join(response_lines) if response_lines else "MiMo is thinking..."
     except Exception as e:
         return f"Error: {e}"
 
