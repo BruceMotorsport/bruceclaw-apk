@@ -6,7 +6,11 @@ Port 8080. Talks to bruceclaw.py's brain in-process.
 """
 import os, sys, json, time, subprocess, base64, threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
 from urllib.parse import unquote
+
+class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    daemon_threads = True
 
 PORT = 8080
 HOME = os.path.expanduser("~")
@@ -176,4 +180,4 @@ if __name__ == "__main__":
     t = threading.Thread(target=init_brain, daemon=True)
     t.start()
     print(f"Server starting on port {PORT}")
-    HTTPServer(("0.0.0.0",PORT),H).serve_forever()
+    ThreadedHTTPServer(("0.0.0.0",PORT),H).serve_forever()
