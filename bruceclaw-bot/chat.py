@@ -349,16 +349,41 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:f
 </style></head><body>
 <div id="h"><h1>BRUCECLAW</h1><span class="st off" id="st">Loading MiMo...</span></div>
 <div id="c"><div class="mb">Connecting to MiMo...</div></div>
-<div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button></div>
+<div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button><button id="contbtn" onclick="toggleContinuous()" style="font-size:11px">🔄</button></div>
 <script>
 function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
 function checkStatus(){fetch("/status").then(r=>r.json()).then(d=>{var s=document.getElementById("st");if(d.mimo){s.textContent="MiMo READY";s.className="st";}else{s.textContent="MiMo starting...";s.className="st off";setTimeout(checkStatus,3000);}}).catch(()=>{document.getElementById("st").textContent="OFFLINE";});}
 fetch("/status").then(r=>r.json()).then(d=>{document.getElementById("c").innerHTML="";if(d.mimo){add("MiMo ready. Type a message or tap 🎤 to talk.","mb");document.getElementById("st").textContent="MiMo READY";document.getElementById("st").className="st";}else{add("MiMo is loading the LLM... this takes a few seconds.","mi");checkStatus();}});
-var mediaRecorder=null;var audioChunks=[];
-function startVoice(){var btn=document.getElementById("micbtn");if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();btn.textContent="🎤";btn.style.background="";return;}
-navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){mediaRecorder=new MediaRecorder(stream);audioChunks=[];mediaRecorder.ondataavailable=function(e){audioChunks.push(e.data);};mediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop();});var blob=new Blob(audioChunks,{type:"audio/webm"});var reader=new FileReader();reader.onload=function(){var b64=reader.result.split(",")[1];add("🎤 Recording sent...","mi");fetch("/voice",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:b64})}).then(function(r){return r.json();}).then(function(d){if(d.transcript){add("You said: "+d.transcript,"mu");}if(d.reply){add(d.reply,"mb");}}).catch(function(e){add("Voice error: "+e,"me");});};reader.readAsDataURL(blob);};mediaRecorder.start();btn.textContent="⏹";btn.style.background="#f44";}).catch(function(e){add("Mic access denied: "+e,"me");});}
+var mediaRecorder=null;var audioChunks=[];var continuousMode=false;var stream=null;
+function startVoice(){var btn=document.getElementById("micbtn");
+if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();btn.textContent="🎤";btn.style.background="";return;}
+navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){
+stream=s;mediaRecorder=new MediaRecorder(s);audioChunks=[];
+mediaRecorder.ondataavailable=function(e){audioChunks.push(e.data);};
+mediaRecorder.onstop=function(){processAudio();};
+mediaRecorder.start();btn.textContent="⏹";btn.style.background="#f44";
+}).catch(function(e){add("Mic access denied: "+e,"me");});}
+function processAudio(){stream.getTracks().forEach(function(t){t.stop();});
+var blob=new Blob(audioChunks,{type:"audio/webm"});var reader=new FileReader();
+reader.onload=function(){var b64=reader.result.split(",")[1];
+fetch("/voice",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:b64})})
+.then(function(r){return r.json();}).then(function(d){
+if(d.transcript){var t=d.transcript.toLowerCase();
+if(t.includes("stop listening")||t.includes("stop listening")){continuousMode=false;document.getElementById("contbtn").style.background="";add("🔇 Stopped listening","mi");return;}
+if(t.includes("start listening")){continuousMode=true;document.getElementById("contbtn").style.background="#0f8";add("🎤 Listening...","mi");setTimeout(function(){startVoice();},1000);return;}
+add("You said: "+d.transcript,"mu");}
+if(d.reply){add(d.reply,"mb");}
+if(continuousMode){setTimeout(function(){startVoice();},1500);}
+else{document.getElementById("micbtn").textContent="🎤";document.getElementById("micbtn").style.background="";}
+}).catch(function(e){add("Voice error: "+e,"me");
+if(continuousMode){setTimeout(function(){startVoice();},2000);}
+});};reader.readAsDataURL(blob);}
+function toggleContinuous(){continuousMode=!continuousMode;var btn=document.getElementById("contbtn");
+if(continuousMode){btn.style.background="#0f8";add("🎤 Continuous mode ON — say 'stop listening' to pause","mi");startVoice();}
+else{btn.style.background="";add("🔇 Continuous mode OFF","mi");
+if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();document.getElementById("micbtn").textContent="🎤";document.getElementById("micbtn").style.background="";}}}
 </script></body></html>"""
 
 if __name__ == "__main__":
