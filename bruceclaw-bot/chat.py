@@ -346,13 +346,11 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100dvh;display:
 #i{padding:6px;background:#181818;border-top:2px solid #ff6600;display:flex;gap:4px;flex-shrink:0}
 #i input{flex:1;background:#222;border:1px solid #444;color:#fff;padding:8px;border-radius:8px;font-size:14px;min-width:0}
 #i button{background:#ff6600;color:#fff;border:none;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:700;flex-shrink:0}
+@keyframes pulse{from{transform:scale(1)}to{transform:scale(1.03)}}
 </style></head><body>
 <div id="h"><h1>BRUCECLAW</h1><span class="st off" id="st">Loading MiMo...</span></div>
-<div id="avatar" style="position:relative;width:120px;height:120px;margin:0 auto;border-radius:50%;overflow:hidden;border:3px solid #ff6600;box-shadow:0 0 15px rgba(255,102,0,0.3)">
+<div id="avatar" style="position:relative;width:160px;height:160px;margin:0 auto;border-radius:50%;overflow:hidden;border:3px solid #ff6600;box-shadow:0 0 15px rgba(255,102,0,0.3)">
 <img id="avatarImg" src="https://files.catbox.moe/jno288.jpg" style="width:100%;height:100%;object-fit:cover;transition:transform 0.3s">
-<div id="mouthOverlay" style="position:absolute;bottom:28%;left:50%;transform:translateX(-50%);width:40px;height:8px;background:#ff6600;border-radius:50%;opacity:0;transition:all 0.1s"></div>
-<div id="blinkL" style="position:absolute;top:32%;left:22%;width:22px;height:10px;background:#0a0a0a;border-radius:50%;opacity:0"></div>
-<div id="blinkR" style="position:absolute;top:32%;right:22%;width:22px;height:10px;background:#0a0a0a;border-radius:50%;opacity:0"></div>
 </div>
 <div id="c"><div class="mb">Connecting to MiMo...</div></div>
 <div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button><button id="contbtn" onclick="toggleContinuous()" style="font-size:11px">🔄</button></div>
@@ -362,14 +360,10 @@ if(c==="mb"){startTalking();setTimeout(stopTalking,Math.min(t.length*50,3000));}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
 // === AVATAR ANIMATION ===
-var talking=false;
-function blink(){var l=document.getElementById("blinkL"),r=document.getElementById("blinkR");if(!l)return;
-l.style.opacity="1";r.style.opacity="1";setTimeout(function(){l.style.opacity="0";r.style.opacity="0";},150);}
-setInterval(function(){if(Math.random()>0.6)blink();},3500);
-function startTalking(){talking=true;animateMouth();var img=document.getElementById("avatarImg");if(img)img.style.transform="scale(1.02)";}
-function stopTalking(){talking=false;var m=document.getElementById("mouthOverlay");if(m)m.style.opacity="0";
-var img=document.getElementById("avatarImg");if(img)img.style.transform="scale(1)";}
-function animateMouth(){if(!talking)return;var m=document.getElementById("mouthOverlay");if(!m)return;
+
+
+
+function startTalking(){var a=document.getElementById("avatar");if(a)a.style.boxShadow="0 0 40px rgba(255,102,0,0.8)";var img=document.getElementById("avatarImg");if(img)img.style.animation="pulse 0.5s infinite alternate";}
 var h=Math.random()*14+4;var w=30+Math.random()*20;
 m.style.opacity="0.9";m.style.height=h+"px";m.style.width=w+"px";
 m.style.borderRadius=h>10?"40%":"50%";
