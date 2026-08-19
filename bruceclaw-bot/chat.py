@@ -4,7 +4,7 @@ BruceClaw Chat + Phone Control
 Imports MiMo brain directly, no subprocess piping.
 Port 8080. Talks to bruceclaw.py's brain in-process.
 """
-import os, sys, json, time, subprocess, base64, threading
+import os, sys, json, time, subprocess, base64, threading, re
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from socketserver import ThreadingMixIn
 from urllib.parse import unquote
@@ -54,9 +54,10 @@ def mimo_chat(msg):
         return "MiMo is starting up, try again in a few seconds"
     try:
         reply = brain.handle_input(msg)
+        # Strip think tags before action detection
+        clean = re.sub(r'<think>.*?</think>\n?\n?', '', reply, flags=re.DOTALL).strip()
         # Execute actions MiMo mentions
-        import re
-        lower = reply.lower()
+        lower = clean.lower()
         action_done = ""
         # Open app
         m = re.search(r'open(?:ing)?\s+(youtube|chrome|whatsapp|telegram|settings|camera|maps|phone|gallery|files|play store)', lower)
