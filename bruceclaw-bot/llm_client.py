@@ -1,6 +1,3 @@
-"""
-LLM Client — uses curl for HTTPS (python ssl broken on phone).
-"""
 import json, subprocess, os
 
 class LLMClient:
@@ -12,7 +9,7 @@ class LLMClient:
         self.system_prompt = system_prompt
         self.history = []
 
-    def chat(self, user_message: str) -> str:
+    def chat(self, user_message):
         self.history.append({"role": "user", "content": user_message})
         messages = []
         if self.system_prompt:
@@ -26,17 +23,20 @@ class LLMClient:
         })
         tmp = "/tmp/llm_payload.json"
         open(tmp, "w").write(payload)
-        cmd = [
-            "curl", "-s", "--max-time", "30",
-            "-X", "POST", self.endpoint,
-            "-H", "Content-Type: application/json",
-            "-H", f"Authorization: Bearer {self.api_key}",
-            "-d", f"@{tmp}"
-        ]
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=35)
+        r = subprocess.run(
+            ["curl", "-s", "--max-time", "30", "-X", "POST", self.endpoint,
+             "-H", "Content-Type: application/json",
+             "-H", "Authorization: Bearer " + self.api_key,
+             "-d", "@" + tmp],
+            capture_output=True, text=True, timeout=35
+        )
         if r.returncode != 0:
             raise Exception(f"HTTP error: {r.stderr[:200]}")
         data = json.loads(r.stdout)
-        reply = data["choices"][0]["message"]["content"]
-        self.history.append({"role": "assistant", "content": reply})
-        return reply
+        choices = data.get("choices", [])
+        if not choices:
+            raise Exception("No choices: " + r.stdout[:200])
+        msg = choices[0].get("message", {})
+        content = msg.get("content") or msg.get("reasoning_content") or "Thinking..."
+        self.history.append({"role": "assistant", "content": content})
+        return content
