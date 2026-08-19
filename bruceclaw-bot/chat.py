@@ -269,6 +269,47 @@ class H(BaseHTTPRequestHandler):
             run(f"input text '{txt}'")
             self.js({"ok":True})
         elif p == "/tts": run(f"termux-tts-speak '{d.get('text','')}'"); self.js({"ok":True})
+        # === VOICE ENDPOINT ===
+        elif p == "/voice":
+            # Browser sends recorded audio (webm blob as base64)
+            audio_b64 = d.get("audio", "")
+            if not audio_b64:
+                self.js({"err":"no audio"}); return
+            # Save audio to temp file
+            audio_path = f"{HOME}/voice_input.webm"
+            try:
+                import base64 as b64
+                audio_bytes = b64.b64decode(audio_b64)
+                with open(audio_path, "wb") as f:
+                    f.write(audio_bytes)
+                # Transcribe with Groq Whisper
+                whisper_key = brain.config.get("api_key", "")
+                cmd = [
+                    "curl", "-s", "--max-time", "30",
+                    "-X", "POST", "https://api.groq.com/openai/v1/audio/transcriptions",
+                    "-H", "Authorization: Bearer " + whisper_key,
+                    "-F", "file=@" + audio_path,
+                    "-F", "model=whisper-large-v3-turbo",
+                    "-F", "language=en"
+                ]
+                r = subprocess.run(cmd, capture_output=True, text=True, timeout=35)
+                transcript = ""
+                if r.returncode == 0:
+                    try:
+                        transcript = json.loads(r.stdout).get("text", "")
+                    except: transcript = r.stdout[:200]
+                os.remove(audio_path)
+                if not transcript:
+                    self.js({"ok":True,"transcript":"","reply":"Couldn't understand the audio"}); return
+                # Send transcript to MiMo
+                reply = mimo_chat(transcript)
+                # Speak the response
+                clean_reply = re.sub(r'<think>.*?</think>\n?\n?', '', reply, flags=re.DOTALL).strip()
+                if clean_reply:
+                    run(f"termux-tts-speak '{clean_reply[:200]}'")
+                self.js({"ok":True,"transcript":transcript,"reply":reply})
+            except Exception as e:
+                self.js({"err":str(e)})
         else: self.js({"err":"unknown"},404)
 
     def do_OPTIONS(self):
@@ -308,13 +349,16 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:f
 </style></head><body>
 <div id="h"><h1>BRUCECLAW</h1><span class="st off" id="st">Loading MiMo...</span></div>
 <div id="c"><div class="mb">Connecting to MiMo...</div></div>
-<div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button></div>
+<div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button></div>
 <script>
 function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
 function checkStatus(){fetch("/status").then(r=>r.json()).then(d=>{var s=document.getElementById("st");if(d.mimo){s.textContent="MiMo READY";s.className="st";}else{s.textContent="MiMo starting...";s.className="st off";setTimeout(checkStatus,3000);}}).catch(()=>{document.getElementById("st").textContent="OFFLINE";});}
-fetch("/status").then(r=>r.json()).then(d=>{document.getElementById("c").innerHTML="";if(d.mimo){add("MiMo ready. Type a message.","mb");document.getElementById("st").textContent="MiMo READY";document.getElementById("st").className="st";}else{add("MiMo is loading the LLM... this takes a few seconds.","mi");checkStatus();}});
+fetch("/status").then(r=>r.json()).then(d=>{document.getElementById("c").innerHTML="";if(d.mimo){add("MiMo ready. Type a message or tap 🎤 to talk.","mb");document.getElementById("st").textContent="MiMo READY";document.getElementById("st").className="st";}else{add("MiMo is loading the LLM... this takes a few seconds.","mi");checkStatus();}});
+var mediaRecorder=null;var audioChunks=[];
+function startVoice(){var btn=document.getElementById("micbtn");if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();btn.textContent="🎤";btn.style.background="";return;}
+navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){mediaRecorder=new MediaRecorder(stream);audioChunks=[];mediaRecorder.ondataavailable=function(e){audioChunks.push(e.data);};mediaRecorder.onstop=function(){stream.getTracks().forEach(function(t){t.stop();});var blob=new Blob(audioChunks,{type:"audio/webm"});var reader=new FileReader();reader.onload=function(){var b64=reader.result.split(",")[1];add("🎤 Recording sent...","mi");fetch("/voice",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:b64})}).then(function(r){return r.json();}).then(function(d){if(d.transcript){add("You said: "+d.transcript,"mu");}if(d.reply){add(d.reply,"mb");}}).catch(function(e){add("Voice error: "+e,"me");});};reader.readAsDataURL(blob);};mediaRecorder.start();btn.textContent="⏹";btn.style.background="#f44";}).catch(function(e){add("Mic access denied: "+e,"me");});}
 </script></body></html>"""
 
 if __name__ == "__main__":
