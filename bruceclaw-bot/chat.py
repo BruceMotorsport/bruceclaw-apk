@@ -10,6 +10,39 @@ from urllib.parse import unquote
 PORT = 8080
 HOME = os.path.expanduser("~")
 
+# Auto-start MiMo brain if not running
+def ensure_mimo():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(2)
+        s.connect(("127.0.0.1", 9999))
+        s.close()
+        print("[OK] MiMo already running on port 9999")
+        return
+    except:
+        pass
+    print("[START] Starting MiMo brain on port 9999...")
+    mimo_dir = os.path.join(HOME, "bruceclaw")
+    if os.path.exists(os.path.join(mimo_dir, "bruceclaw.py")):
+        subprocess.Popen(
+            ["python3", "bruceclaw.py"],
+            cwd=mimo_dir,
+            stdout=open(os.devnull, "w"),
+            stderr=open(os.devnull, "w"),
+            start_new_session=True
+        )
+        time.sleep(3)
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(2)
+            s.connect(("127.0.0.1", 9999))
+            s.close()
+            print("[OK] MiMo started on port 9999")
+        except:
+            print("[WARN] MiMo started but not responding yet on port 9999")
+    else:
+        print("[ERROR] bruceclaw.py not found in", mimo_dir)
+
 def run(cmd, t=10):
     try: return subprocess.run(cmd,shell=True,capture_output=True,text=True,timeout=t).stdout
     except: return "error"
@@ -169,4 +202,5 @@ if __name__ == "__main__":
     print("BruceClaw Chat + Phone Control")
     print(f"Chat: http://localhost:{PORT}")
     print(f"Phone: http://localhost:{PORT}?phone=1")
+    ensure_mimo()
     HTTPServer(("0.0.0.0",PORT),H).serve_forever()
