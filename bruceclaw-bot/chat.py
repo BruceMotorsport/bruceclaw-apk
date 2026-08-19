@@ -28,6 +28,9 @@ brain_ready = False
 def init_brain():
     global brain, brain_ready
     try:
+        # Change to bruceclaw directory so config.json is found
+        mimo_dir = os.path.join(HOME, "bruceclaw")
+        os.chdir(mimo_dir)
         from bruceclaw import BruceClawBrain
         brain = BruceClawBrain()
         # Wait for LLM to connect (up to 15 seconds)
