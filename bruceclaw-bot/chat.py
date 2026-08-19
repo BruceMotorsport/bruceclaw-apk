@@ -353,10 +353,39 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100dvh;display:
 <img id="avatarImg" src="https://files.catbox.moe/jno288.jpg" style="width:100%;height:100%;object-fit:cover;transition:transform 0.3s">
 </div>
 <div id="c"><div class="mb">Connecting to MiMo...</div></div>
-<div id="i"><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button><button id="contbtn" onclick="toggleContinuous()" style="font-size:11px">🔄</button></div>
+<div id="i"><button onclick="toggleAttach()" style="background:#222;color:#ff6600;border:1px solid #ff6600;padding:8px 10px;border-radius:8px;font-size:16px;font-weight:700">+</button><input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()"><button onclick="send()">SEND</button><button id="micbtn" onclick="startVoice()">🎤</button><button id="contbtn" onclick="toggleContinuous()" style="font-size:11px">🔄</button></div>
+<div id="attachMenu" style="display:none;position:fixed;bottom:55px;left:8px;background:#222;border:1px solid #444;border-radius:10px;padding:4px 0;z-index:50;min-width:120px">
+<div onclick="pickFile()" style="padding:8px 14px;cursor:pointer;color:#ff6600;border-bottom:1px solid #333;font-size:13px">📎 Upload File</div>
+<div onclick="takePhoto()" style="padding:8px 14px;cursor:pointer;color:#ff6600;font-size:13px">📷 Take Photo</div>
+</div>
+<input type="file" id="fileInput" accept="image/*,.pdf,.txt,.csv,.json,.doc,.docx" multiple style="display:none">
+<input type="file" id="camInput" accept="image/*" capture="environment" style="display:none">
 <script>
-function add(t,c){var d=document.createElement("div");d.className="m "+c;d.textContent=t;document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;
-if(c==="mb"){startTalking();setTimeout(stopTalking,Math.min(t.length*50,3000));}}
+function toggleAttach(){var m=document.getElementById("attachMenu");m.style.display=m.style.display==="none"?"block":"none";}
+function pickFile(){document.getElementById("fileInput").click();document.getElementById("attachMenu").style.display="none";}
+function takePhoto(){document.getElementById("camInput").click();document.getElementById("attachMenu").style.display="none";}
+document.getElementById("fileInput").onchange=function(e){var files=e.target.files;if(!files.length)return;
+Array.from(files).forEach(function(f){
+if(f.type.startsWith("image/")){var r=new FileReader();r.onload=function(ev){
+add("","mu","<img src='"+ev.target.result+"' style='max-width:200px;border-radius:8px'>");
+uploadFile(f,"image");};r.readAsDataURL(f);}
+else{add("📎 "+f.name,"mu");uploadFile(f,"file");}
+});e.target.value="";};
+document.getElementById("camInput").onchange=function(e){var f=e.target.files[0];if(!f)return;
+var r=new FileReader();r.onload=function(ev){
+add("","mu","<img src='"+ev.target.result+"' style='max-width:200px;border-radius:8px'>");
+uploadFile(f,"camera");};r.readAsDataURL(f);e.target.value="";};
+function uploadFile(file,type){var fd=new FormData();fd.append("file",file);fd.append("type",type);
+add("Uploading "+file.name+"...","mi");
+fetch("/upload",{method:"POST",body:fd}).then(function(r){return r.json();}).then(function(d){
+var c=document.getElementById("c");if(c.lastChild&&c.lastChild.textContent.includes("Uploading"))c.removeChild(c.lastChild);
+if(d.reply){add(d.reply,"mb");}else if(d.content){add(d.content,"mb");}
+else{add("Uploaded: "+file.name,"mb");}
+}).catch(function(e){add("Upload error: "+e,"me");});}
+function add(html,cls,innerHtml){var d=document.createElement("div");d.className="m "+cls;
+if(innerHtml){d.innerHTML=innerHtml;}else{d.textContent=html;}
+document.getElementById("c").appendChild(d);document.getElementById("c").scrollTop=99999;
+if(cls==="mb"){startTalking();setTimeout(stopTalking,Math.min(html.length*50,3000));}}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})}).then(r=>r.json()).then(d=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");}).catch(e=>{var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
 // === AVATAR ANIMATION ===
