@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">BruceClaw</string>
+    <string name="accessibility_service_description">BruceClaw uses this to control your phone — tap, type, swipe, and open apps on your behalf. Only activates when you ask it to.</string>
+</resources>

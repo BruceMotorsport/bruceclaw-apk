@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.BruceClaw" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF6B00</item>
+        <item name="colorPrimaryVariant">#CC5500</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:statusBarColor">#1A1A1A</item>
+        <item name="android:navigationBarColor">#1A1A1A</item>
+    </style>
+</resources>

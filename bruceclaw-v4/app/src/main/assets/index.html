@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BruceClaw</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#hdr{background:#181818;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #ff6600}
+#hdr .logo{display:flex;align-items:center;gap:6px}
+#hdr .logo img{width:32px;height:32px;border-radius:6px}
+#hdr h1{font-size:20px;color:#ff6600}
+#hdr .r{display:flex;gap:8px;align-items:center}
+#hdr .r span{font-size:11px;color:#0f8;background:#1a1a2e;padding:3px 8px;border-radius:8px}
+#hdr .r span.off{color:#f44}
+#hdr .r button{background:#2a2a2a;color:#ff6600;border:2px solid #ff6600;padding:4px 8px;border-radius:8px;font-size:14px}
+#tabs{display:flex;background:#111}
+#tabs div{flex:1;padding:10px;text-align:center;color:#666;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent}
+#tabs div.on{color:#ff6600;border-bottom-color:#ff6600}
+#chat{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px}
+.m{max-width:90%;padding:10px 14px;border-radius:12px;font-size:17px;line-height:1.4;white-space:pre-wrap;word-wrap:break-word}
+.mu{align-self:flex-end;background:#ff6600;color:#fff}
+.mb{align-self:flex-start;background:#222;color:#eee;border:1px solid #333}
+.me{border-color:#f44;color:#f88;font-size:14px}
+.mi{border-color:#0f8;color:#0f8;font-size:13px}
+.m img{max-width:100%;border-radius:8px;margin-top:6px}
+#term{display:none;flex:1;background:#000;color:#0f0;font-family:monospace;font-size:12px;padding:8px;overflow-y:auto;white-space:pre-wrap}
+#inp{padding:6px 8px;background:#181818;border-top:2px solid #ff6600;display:flex;gap:4px;align-items:flex-end}
+#inp textarea{flex:1;background:#222;border:1px solid #444;color:#fff;padding:8px;border-radius:10px;font-size:16px;resize:none;outline:none;min-height:40px;font-family:inherit}
+.ibtn{color:#fff;border:none;padding:8px 10px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;background:#ff6600}
+#micbtn.on{background:#f44!important;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+#set{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.97);z-index:100;padding:12px;overflow-y:auto}
+#set h2{color:#ff6600;margin-bottom:8px}
+#set label{color:#aaa;font-size:13px;margin-top:8px;display:block}
+#set input,#set select{width:100%;background:#1f1f1f;border:1px solid #444;color:#fff;padding:8px;border-radius:6px;font-size:14px;margin-top:3px}
+.sec{border-top:1px solid #333;padding-top:10px;margin-top:12px}
+.sec h3{color:#ff6600;font-size:15px;margin-bottom:6px}
+.tgl{display:flex;align-items:center;gap:8px;margin-top:6px}
+.tgl input[type=checkbox]{width:40px;height:22px;accent-color:#ff6600}
+.tgl label{margin:0;color:#ccc;font-size:13px}
+.br{margin-top:14px;text-align:center}
+.br button{display:inline-block;padding:12px 30px;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin:0 4px}
+#preview{display:none;position:fixed;bottom:60px;left:8px;right:8px;background:#181818;border:1px solid #ff6600;border-radius:10px;padding:6px;z-index:50}
+#preview img{max-height:120px;border-radius:6px}
+#preview .close{position:absolute;top:4px;right:8px;color:#f44;font-size:18px;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div class="logo">
+    <img src="logo.jpeg" onerror="this.style.display='none'">
+    <h1>BRUCECLAW</h1>
+  </div>
+  <div class="r">
+    <span id="st" class="off">NO KEY</span>
+    <button onclick="openS()">&#9881;</button>
+  </div>
+</div>
+
+<div id="tabs">
+  <div class="on" onclick="sw(0)">Chat</div>
+  <div onclick="sw(1)">Terminal</div>
+</div>
+
+<div id="chat">
+  <div class="mb">BruceClaw ready. Tap &#9881; to set API key.</div>
+</div>
+
+<div id="term">BruceClaw Terminal
+Type commands and tap RUN
+&gt; </div>
+
+<div id="preview"><span class="close" onclick="clearPreview()">&times;</span><img id="previmg"></div>
+
+<div id="inp">
+  <button class="ibtn" onclick="pickFile()">+</button>
+  <textarea id="msg" rows="1" placeholder="Message..."></textarea>
+  <button class="ibtn" id="cambtn" onclick="takePhoto()">&#128247;</button>
+  <button class="ibtn" id="micbtn" onclick="toggleMic()">&#127908;</button>
+  <button class="ibtn" onclick="send()">SEND</button>
+</div>
+
+<div id="set">
+  <h2>Settings</h2>
+  <div class="sec">
+    <h3>LLM Provider</h3>
+    <label>Provider</label>
+    <select id="prov" onchange="onProv()">
+      <option value="mimo">OpenCode Zen (MiMo)</option>
+      <option value="gemini">Google Gemini</option>
+      <option value="openrouter">OpenRouter</option>
+    </select>
+    <label>API Key</label><input type="password" id="ak" placeholder="Paste key">
+    <label>Endpoint</label><input type="text" id="ep">
+    <label>Model</label><input type="text" id="md">
+  </div>
+  <div class="sec">
+    <h3>Voice</h3>
+    <div class="tgl"><input type="checkbox" id="autoVoice" checked><label>Auto voice (speak replies)</label></div>
+    <div class="tgl"><input type="checkbox" id="speakAloud" checked><label>Speak aloud (TTS output)</label></div>
+    <div class="tgl"><input type="checkbox" id="termuxVoice"><label>Relay voice to Termux</label></div>
+  </div>
+  <div class="sec">
+    <h3>Bot</h3>
+    <div class="tgl"><input type="checkbox" id="botEnabled" checked><label>Python bot enabled</label></div>
+    <label>Bot port</label><input type="text" id="botPort" value="9999">
+  </div>
+  <div class="br" style="margin-top:20px">
+    <button style="background:#ff6600;color:#fff" onclick="saveS()">Save</button>
+    <button style="background:#333;color:#fff" onclick="closeS()">Cancel</button>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+<input type="file" id="camInput" accept="image/*" capture="environment" style="display:none">
+
+<script>
+var C={p:"mimo",k:"",e:"https://opencode.ai/zen/go/v1/chat/completions",m:"mimo-v2.5"};
+var PROVS={
+  mimo:{e:"https://opencode.ai/zen/go/v1/chat/completions",m:"mimo-v2.5"},
+  gemini:{e:"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",m:"gemini-2.0-flash"},
+  openrouter:{e:"https://openrouter.ai/api/v1/chat/completions",m:"meta-llama/llama-3.3-70b-instruct:free"}
+};
+var chatHistory=[];
+var termMode=0;
+var pendingImg=null;
+
+try{C=JSON.parse(localStorage.getItem("bc"))||C;}catch(e){}
+if(C.k){document.getElementById("st").textContent=C.p;document.getElementById("st").className="";}
+
+function openS(){
+  document.getElementById("set").style.display="flex";
+  document.getElementById("prov").value=C.p||"mimo";
+  document.getElementById("ak").value=C.k||"";
+  document.getElementById("ep").value=C.e||"";
+  document.getElementById("md").value=C.m||"";
+  onProv();
+}
+function closeS(){document.getElementById("set").style.display="none";}
+
+function onProv(){
+  var p=document.getElementById("prov").value,i=PROVS[p];
+  if(i){document.getElementById("ep").value=i.e;document.getElementById("md").value=i.m;C.p=p;C.e=i.e;C.m=i.m;localStorage.setItem("bc",JSON.stringify(C));}
+}
+
+function saveS(){
+  C.p=document.getElementById("prov").value;
+  C.k=document.getElementById("ak").value.trim();
+  C.e=document.getElementById("ep").value.trim();
+  C.m=document.getElementById("md").value.trim();
+  localStorage.setItem("bc",JSON.stringify(C));
+  localStorage.setItem("bc_voice",JSON.stringify({
+    auto:document.getElementById("autoVoice").checked,
+    speak:document.getElementById("speakAloud").checked,
+    termux:document.getElementById("termuxVoice").checked
+  }));
+  localStorage.setItem("bc_bot",JSON.stringify({
+    enabled:document.getElementById("botEnabled").checked,
+    port:document.getElementById("botPort").value
+  }));
+  document.getElementById("st").textContent=C.k?C.p:"NO KEY";
+  document.getElementById("st").className=C.k?"":"off";
+  closeS();
+  addMsg("Saved","mi");
+}
+
+// Load saved voice/bot settings
+try{var v=JSON.parse(localStorage.getItem("bc_voice")||"{}");
+  document.getElementById("autoVoice").checked=v.auto!==false;
+  document.getElementById("speakAloud").checked=v.speak!==false;
+  document.getElementById("termuxVoice").checked=!!v.termux;
+}catch(e){}
+try{var b=JSON.parse(localStorage.getItem("bc_bot")||"{}");
+  document.getElementById("botEnabled").checked=b.enabled!==false;
+  document.getElementById("botPort").value=b.port||"9999";
+}catch(e){}
+
+// ============ CHAT ============
+function addMsg(t,c,html){
+  var d=document.createElement("div");
+  d.className="m "+c;
+  if(html){d.innerHTML=html;}else{d.textContent=t;}
+  document.getElementById("chat").appendChild(d);
+  document.getElementById("chat").scrollTop=99999;
+  return d;
+}
+
+function send(){
+  if(termMode===1){runCmd();return;}
+  var m=document.getElementById("msg").value.trim();
+  if(!m&&!pendingImg)return;
+  if(!C.k){addMsg("Set API key first","me");return;}
+
+  if(pendingImg){
+    addMsg("","mu","<img src='"+pendingImg+"' style='max-width:200px;border-radius:8px'>");
+    chatHistory.push({role:"user",content:m||"Describe this image"});
+  } else {
+    addMsg(m,"mu");
+    chatHistory.push({role:"user",content:m});
+  }
+  document.getElementById("msg").value="";
+  clearPreview();
+  callAPI(m);
+}
+
+function callAPI(msg){
+  var sys="You are BruceClaw, Bruce's phone assistant. Keep replies SHORT. You control the phone via Accessibility. If asked to call someone say 'Calling'. If asked to open an app say 'Opening'. You can tap, swipe, scroll, type, take photos, and control the phone.";
+  var messages=[{role:"system",content:sys}];
+  chatHistory.slice(-10).forEach(function(m){messages.push(m);});
+  addMsg("Thinking...","mi");
+
+  try{
+    var result=Tools.callAI(C.p,C.k,C.e,C.m,JSON.stringify(messages));
+    // Remove "Thinking..." message
+    var chat=document.getElementById("chat");
+    if(chat.lastChild) chat.removeChild(chat.lastChild);
+    onReply(result);
+  }catch(e){
+    var chat=document.getElementById("chat");
+    if(chat.lastChild) chat.removeChild(chat.lastChild);
+    addMsg("Error: "+e,"me");
+  }
+}
+
+function onReply(r){
+  addMsg(r,"mb");
+  chatHistory.push({role:"assistant",content:r});
+  if(document.getElementById("autoVoice").checked||document.getElementById("speakAloud").checked){
+    try{Tools.ttsSpeak(r);}catch(e){}
+  }
+  if(document.getElementById("termuxVoice").checked){
+    try{Tools.sendToTermux(r);}catch(e){}
+  }
+}
+
+// ============ VOICE ============
+function toggleMic(){
+  var btn=document.getElementById("micbtn");
+  if(btn.classList.contains("on")){
+    btn.classList.remove("on");
+    return;
+  }
+  btn.classList.add("on");
+  addMsg("Listening... tap MIC again to stop","mi");
+  // Voice input handled via TalkBack or external STT
+}
+
+// ============ FILES / CAMERA ============
+function pickFile(){document.getElementById("fileInput").click();}
+function takePhoto(){document.getElementById("camInput").click();}
+
+document.getElementById("fileInput").onchange=function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    pendingImg=ev.target.result;
+    document.getElementById("previmg").src=pendingImg;
+    document.getElementById("preview").style.display="block";
+  };
+  r.readAsDataURL(f);
+};
+document.getElementById("camInput").onchange=function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    pendingImg=ev.target.result;
+    document.getElementById("previmg").src=pendingImg;
+    document.getElementById("preview").style.display="block";
+  };
+  r.readAsDataURL(f);
+};
+function clearPreview(){
+  pendingImg=null;
+  document.getElementById("preview").style.display="none";
+  document.getElementById("fileInput").value="";
+  document.getElementById("camInput").value="";
+}
+
+// ============ TABS ============
+function sw(i){
+  termMode=i;
+  var tabs=document.getElementById("tabs").children;
+  tabs[0].className=i===0?"on":"";
+  tabs[1].className=i===1?"on":"";
+  document.getElementById("chat").style.display=i===0?"flex":"none";
+  document.getElementById("term").style.display=i===1?"block":"none";
+  if(i===1)document.getElementById("term").scrollTop=99999;
+}
+
+function runCmd(){
+  var c=document.getElementById("msg").value.trim();if(!c)return;
+  var t=document.getElementById("term");
+  t.textContent+="$ "+c+"\n";
+  document.getElementById("msg").value="";
+  try{
+    var result=Tools.shell(c);
+    t.textContent+=result+"\n";
+  }catch(e){
+    t.textContent+="Error: "+e.message+"\n";
+  }
+  t.textContent+="> ";
+  t.scrollTop=99999;
+}
+
+// ============ TERMUX RELAY ============
+function onTermuxMessage(msg){
+  addMsg("[Termux] "+msg,"mi");
+}
+function onTermuxReply(msg){
+  addMsg("[Termux] "+msg,"mb");
+}
+</script>
+</body>
+</html>
