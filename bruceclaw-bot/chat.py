@@ -48,27 +48,43 @@ def run(cmd, t=10):
     except: return "error"
 
 def mimo_chat(msg):
+    """Talk to MiMo by running bruceclaw.py with the message as input."""
+    mimo_dir = os.path.join(HOME, "bruceclaw")
+    bruceclaw_py = os.path.join(mimo_dir, "bruceclaw.py")
+    if not os.path.exists(bruceclaw_py):
+        return "bruceclaw.py not found at " + bruceclaw_py
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(30)
-        s.connect(("127.0.0.1", 9999))
-        s.recv(4096)
-        s.sendall((msg+"\n").encode())
-        time.sleep(1)
-        resp = b""
-        s.settimeout(15)
-        while True:
-            try:
-                c = s.recv(4096)
-                if not c: break
-                resp += c
-                t = resp.decode(errors="ignore")
-                if "you>" in t: break
-            except: break
-        s.close()
-        lines = [l.strip() for l in resp.decode(errors="ignore").split("\n") if l.strip() and not l.strip().startswith("you>") and not l.strip().startswith("~/")]
-        return "\n".join(lines) if lines else "No response"
-    except: return "MiMo not running on port 9999"
+        result = subprocess.run(
+            ["python3", "bruceclaw.py"],
+            input=msg + "\nquit\n",
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=mimo_dir
+        )
+        output = result.stdout + result.stderr
+        # Extract bot responses (lines after "bot> ")
+        lines = output.split("\n")
+        replies = []
+        for line in lines:
+            line = line.strip()
+            if line.startswith("bot> "):
+                replies.append(line[5:])
+            elif line.startswith("you>") or line.startswith("~/") or not line:
+                continue
+            elif "LLM" in line or "Connected" in line or "Error" in line or "APK" in line:
+                continue
+            elif line in ("Hey, I'm BruceClaw.", "Say my name or type a command. Type 'help' for what I can do.",
+                         "I can control your phone — open apps, tap, type, scroll, swipe.",
+                         "Goodbye."):
+                continue
+            elif replies:  # Only add non-system lines after we have replies
+                replies.append(line)
+        return "\n".join(replies) if replies else output.strip()[-500:]
+    except subprocess.TimeoutExpired:
+        return "MiMo timed out (30s)"
+    except Exception as e:
+        return f"Error: {e}"
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -202,5 +218,5 @@ if __name__ == "__main__":
     print("BruceClaw Chat + Phone Control")
     print(f"Chat: http://localhost:{PORT}")
     print(f"Phone: http://localhost:{PORT}?phone=1")
-    ensure_mimo()
+    ensure_mimo()  # Check if MiMo is running, start if not
     HTTPServer(("0.0.0.0",PORT),H).serve_forever()
