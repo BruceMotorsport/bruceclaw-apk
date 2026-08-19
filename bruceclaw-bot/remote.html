@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>BruceClaw Remote</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100vh;display:flex;overflow:hidden}
+#panel{width:300px;background:#181818;border-right:1px solid #333;display:flex;flex-direction:column;padding:10px;gap:8px;overflow-y:auto}
+#panel h2{color:#ff6600;font-size:16px}
+.btn{background:#222;color:#ff6600;border:1px solid #ff6600;padding:8px;border-radius:6px;cursor:pointer;font-size:13px;text-align:center}
+.btn:active{background:#ff6600;color:#000}
+.btn.big{font-size:15px;padding:12px}
+input[type=text]{background:#222;border:1px solid #444;color:#fff;padding:8px;border-radius:6px;width:100%;font-size:14px}
+#screen{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#000}
+#screen img{max-width:100%;max-height:100%;cursor:crosshair;border:1px solid #333}
+#coords{position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,.8);padding:6px 12px;border-radius:6px;color:#0f8;font-size:12px}
+.row{display:flex;gap:4px}
+.row .btn{flex:1}
+.section{border-top:1px solid #333;padding-top:8px}
+</style></head><body>
+<div id="panel">
+<h2>BRUCECLAW REMOTE</h2>
+<div id="status" style="color:#f44;font-size:12px">Connecting...</div>
+<button class="btn big" onclick="ss()">SCREENSHOT</button>
+<div class="section">
+<b style="color:#ff6600;font-size:12px">NAVIGATE</b>
+<div class="row"><button class="btn" onclick="go('/home')">HOME</button><button class="btn" onclick="go('/back')">BACK</button></div>
+<div class="row"><button class="btn" onclick="scroll('up')">SCROLL UP</button><button class="btn" onclick="scroll('down')">SCROLL DN</button></div>
+</div>
+<div class="section">
+<b style="color:#ff6600;font-size:12px">APPS</b>
+<input type="text" id="app" placeholder="app name (chrome, youtube...)">
+<button class="btn" onclick="openApp()">OPEN</button>
+</div>
+<div class="section">
+<b style="color:#ff6600;font-size:12px">TYPE TEXT</b>
+<input type="text" id="txt" placeholder="text to type..." onkeydown="if(event.key==='Enter')typeText()">
+<button class="btn" onclick="typeText()">TYPE</button>
+</div>
+<div class="section">
+<b style="color:#ff6600;font-size:12px">CALLS</b>
+<div class="row"><button class="btn" onclick="go('/answer')">ANSWER</button><button class="btn" onclick="go('/hangup')">HANGUP</button></div>
+</div>
+<div class="section">
+<b style="color:#ff6600;font-size:12px">KEYS</b>
+<div class="row"><button class="btn" onclick="press('enter')">ENTER</button><button class="btn" onclick="press('delete')">DEL</button></div>
+<div class="row"><button class="btn" onclick="press('tab')">TAB</button><button class="btn" onclick="press('space')">SPACE</button></div>
+</div>
+<div class="section">
+<b style="color:#ff6600;font-size:12px">CHAT WITH MIMO</b>
+<input type="text" id="chatmsg" placeholder="message..." onkeydown="if(event.key==='Enter')chatMsg()">
+<button class="btn" onclick="chatMsg()">SEND</button>
+<div id="chatlog" style="max-height:150px;overflow-y:auto;font-size:12px;color:#aaa;margin-top:4px"></div>
+</div>
+</div>
+<div id="screen"><img id="scr" src="" onclick="tapImg(event)" style="display:none"></div>
+<div id="coords">x: 0, y: 0</div>
+<script>
+var phoneW=0,phoneH=0;
+var API="http://192.168.1.55:8080";
+
+function api(url,cb){fetch(API+url).then(r=>r.json()).then(cb).catch(e=>console.error(e));}
+function post(url,data,cb){fetch(API+url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)}).then(r=>r.json()).then(cb).catch(e=>console.error(e));}
+function go(u){api(u,d=>console.log(d));}
+function scroll(d){api("/scroll/"+d,d=>console.log(d));}
+function openApp(){var a=document.getElementById("app").value.trim();if(a)api("/open/"+a,d=>console.log(d));}
+function typeText(){var t=document.getElementById("txt").value.trim();if(t)post("/type",{text:t},d=>{console.log(d);document.getElementById("txt").value="";});}
+function press(k){api("/press/"+k,d=>console.log(d));}
+function chatMsg(){var m=document.getElementById("chatmsg").value.trim();if(!m)return;var log=document.getElementById("chatlog");log.innerHTML+="<div style='color:#ff6600'>You: "+m+"</div>";document.getElementById("chatmsg").value="";log.innerHTML+="<div style='color:#0f8'>MiMo: thinking...</div>";log.scrollTop=9999;post("/chat",{message:m},d=>{var last=log.lastChild;last.innerHTML="<div style='color:#0f8'>MiMo: "+(d.reply||"no response")+"</div>";});}
+
+function ss(){
+api("/status",function(s){
+api("/screen_size",function(d){
+if(d.ok){phoneW=d.width;phoneH=d.height;}
+api("/screenshot",function(r){
+if(r.ok&&r.img){
+var img=document.getElementById("scr");
+img.src="data:image/png;base64,"+r.img;
+img.style.display="block";
+document.getElementById("status").textContent="Connected — "+phoneW+"x"+phoneH;
+document.getElementById("status").style.color="#0f8";
+}
+});
+});
+});
+}
+
+function tapImg(e){
+var img=document.getElementById("scr");
+var rect=img.getBoundingClientRect();
+var x=Math.round((e.clientX-rect.left)/rect.width*phoneW);
+var y=Math.round((e.clientY-rect.top)/rect.height*phoneH);
+document.getElementById("coords").textContent="Tap: "+x+","+y;
+api("/tap/"+x+"/"+y,d=>{console.log("Tapped",x,y);setTimeout(ss,500);});
+}
+
+document.getElementById("scr").onmousemove=function(e){
+var img=document.getElementById("scr");
+var rect=img.getBoundingClientRect();
+var x=Math.round((e.clientX-rect.left)/rect.width*phoneW);
+var y=Math.round((e.clientY-rect.top)/rect.height*phoneH);
+document.getElementById("coords").textContent=x+","+y;
+};
+
+api("/status",function(d){if(d.ok){document.getElementById("status").textContent="Connected";document.getElementById("status").style.color="#0f8";ss();}});
+</script></body></html>

@@ -67,6 +67,28 @@ class H(BaseHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin","*")
             self.end_headers()
             self.wfile.write(CHAT.encode())
+        elif p == "/remote":
+            remote_path = os.path.join(HOME, "chat.py_remote.html")
+            if not os.path.exists(remote_path):
+                # Serve inline
+                self.send_response(200)
+                self.send_header("Content-Type","text/html")
+                self.send_header("Access-Control-Allow-Origin","*")
+                self.end_headers()
+                self.wfile.write(REMOTE_HTML.encode())
+            else:
+                with open(remote_path,"rb") as f:
+                    self.send_response(200)
+                    self.send_header("Content-Type","text/html")
+                    self.send_header("Access-Control-Allow-Origin","*")
+                    self.end_headers()
+                    self.wfile.write(f.read())
+        elif p == "/screen_size":
+            out = run("wm size")
+            try:
+                w,h = [int(x) for x in out.split(":")[-1].strip().split("x")]
+                self.js({"ok":True,"width":w,"height":h})
+            except: self.js({"ok":True,"width":1080,"height":2400})
         elif p == "/screenshot":
             path = f"{HOME}/sc.png"
             run(f"screencap -p {path}")
@@ -104,6 +126,38 @@ class H(BaseHTTPRequestHandler):
             run(f"termux-microphone-record -l {d} -f {path}", d+5)
             self.js({"ok":True,"path":path})
         elif p.startswith("/open/"): run(f"monkey -p {p.split('/')[2]} -c android.intent.category.LAUNCHER 1"); self.js({"ok":True})
+        # === BROWSER CONTROL ===
+        elif p.startswith("/go/"):
+            url = p[4:]
+            run(f"am start -a android.intent.action.VIEW -d '{url}'")
+            time.sleep(2)
+            self.js({"ok":True,"url":url})
+        elif p.startswith("/google/"):
+            q = p[8:]
+            run(f"am start -a android.intent.action.VIEW -d 'https://www.google.com/search?q={q}'")
+            time.sleep(3)
+            self.js({"ok":True,"query":q})
+        elif p == "/page":
+            # Get current page text via accessibility tree
+            out = run("uiautomator dump /dev/tty 2>/dev/null || echo 'no uiautomator'")
+            self.js({"ok":True,"html":out[:5000]})
+        elif p.startswith("/form/"):
+            # /form/field_name/value — fill form field by accessibility text
+            parts = p.split("/")
+            if len(parts) >= 4:
+                field = parts[2]
+                value = parts[3]
+                # Try to find and fill the field using accessibility
+                self.js({"ok":True,"field":field,"value":value,"note":"Use /tap then /type instead"})
+            else:
+                self.js({"err":"usage: /form/field/value"})
+        elif p.startswith("/js/"):
+            # Run JavaScript in Chrome via accessibility
+            js_code = p[4:]
+            self.js({"ok":True,"note":"JS execution not supported via ADB, use /tap and /type"})
+        elif p == "/apps":
+            out = run("pm list packages -3 | head -30")
+            self.js({"ok":True,"apps":out})
         elif p.startswith("/shell/"): self.js({"ok":True,"out":run(p[7:],30)[:2000]})
         elif p == "/status":
             out = run("wm size")
@@ -123,6 +177,46 @@ class H(BaseHTTPRequestHandler):
             if not msg: self.js({"err":"empty"}); return
             reply = mimo_chat(msg)
             self.js({"ok":True,"reply":reply})
+        # === BROWSER POST ===
+        elif p == "/browse":
+            url = d.get("url","").strip()
+            action = d.get("action","go")
+            if action == "go" and url:
+                run(f"am start -a android.intent.action.VIEW -d '{url}'")
+                time.sleep(3)
+                # Take screenshot after loading
+                sc = f"{HOME}/sc.png"
+                run(f"screencap -p {sc}")
+                img = ""
+                if os.path.exists(sc):
+                    with open(sc,"rb") as f: img = base64.b64encode(f.read()).decode()
+                    os.remove(sc)
+                self.js({"ok":True,"url":url,"img":img})
+            elif action == "google":
+                q = d.get("query","").strip()
+                run(f"am start -a android.intent.action.VIEW -d 'https://www.google.com/search?q={q}'")
+                time.sleep(3)
+                sc = f"{HOME}/sc.png"
+                run(f"screencap -p {sc}")
+                img = ""
+                if os.path.exists(sc):
+                    with open(sc,"rb") as f: img = base64.b64encode(f.read()).decode()
+                    os.remove(sc)
+                self.js({"ok":True,"query":q,"img":img})
+            elif action == "fill":
+                field = d.get("field","").strip()
+                value = d.get("value","").strip()
+                # Tap the field by text, then type
+                run(f"input tap $(dumpsys window | grep -o 'mCurrentFocus' | head -1)")
+                time.sleep(0.5)
+                run(f"input text '{value}'")
+                self.js({"ok":True,"field":field,"value":value})
+            elif action == "scrape":
+                # Get current screen content via uiautomator
+                out = run("uiautomator dump /dev/tty 2>/dev/null", 10)
+                self.js({"ok":True,"content":out[:5000]})
+            else:
+                self.js({"err":"unknown browse action"})
         elif p == "/type":
             txt = d.get("text","").replace("'","'\\''")
             run(f"input text '{txt}'")
