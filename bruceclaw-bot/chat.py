@@ -209,6 +209,8 @@ class H(BaseHTTPRequestHandler):
             reply = mimo_chat(msg)
             log_transcript("user", msg)
             log_transcript("assistant", reply)
+            clean = re.sub(r'<think>.*?</think>', '', reply, flags=re.DOTALL).strip()
+            if clean: speak(clean[:200])
             self.js({"ok":True,"reply":reply})
         elif p == "/type":
             txt = d.get("text","").replace("'","'\\''")
