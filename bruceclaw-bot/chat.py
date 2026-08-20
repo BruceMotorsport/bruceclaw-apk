@@ -14,6 +14,34 @@ class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
 
 PORT = 8080
 HOME = os.path.expanduser("~")
+TRANSCRIPTS_FILE = os.path.join(HOME, "bruceclaw", "transcripts.json")
+
+def log_transcript(role, content):
+    """Save conversation to transcript file."""
+    try:
+        transcripts = []
+        if os.path.exists(TRANSCRIPTS_FILE):
+            with open(TRANSCRIPTS_FILE) as f:
+                transcripts = json.load(f)
+        transcripts.append({
+            "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "role": role,
+            "content": content[:500]
+        })
+        # Keep last 500 entries
+        transcripts = transcripts[-500:]
+        with open(TRANSCRIPTS_FILE, "w") as f:
+            json.dump(transcripts, f, indent=1)
+    except: pass
+
+def get_transcripts(limit=50):
+    """Load recent transcripts."""
+    try:
+        if os.path.exists(TRANSCRIPTS_FILE):
+            with open(TRANSCRIPTS_FILE) as f:
+                return json.load(f)[-limit:]
+    except: pass
+    return []
 
 # ============ PHONE CONTROL ============
 def run(cmd, t=10):
@@ -152,6 +180,12 @@ class H(BaseHTTPRequestHandler):
                 w,h = [int(x) for x in out.split(":")[-1].strip().split("x")]
                 self.js({"ok":True,"width":w,"height":h})
             except: self.js({"ok":True,"width":1080,"height":2400})
+        elif p == "/transcripts":
+            limit = 50
+            try: limit = int(p.split("?limit=")[1]) if "?limit=" in p else 50
+            except: pass
+            transcripts = get_transcripts(limit)
+            self.js({"ok":True,"transcripts":transcripts,"count":len(transcripts)})
         elif p == "/status":
             out = run("wm size")
             try: sz = out.split(":")[-1].strip()
@@ -169,6 +203,8 @@ class H(BaseHTTPRequestHandler):
             msg = d.get("message","").strip()
             if not msg: self.js({"err":"empty"}); return
             reply = mimo_chat(msg)
+            log_transcript("user", msg)
+            log_transcript("assistant", reply)
             self.js({"ok":True,"reply":reply})
         elif p == "/type":
             txt = d.get("text","").replace("'","'\\''")
