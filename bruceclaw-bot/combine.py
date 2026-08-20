@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-"""Combine all MiMo modules into one chat.py for phone deployment."""
-import re
+"""Combine all MiMo modules into one chat_deploy.py for phone deployment."""
+import re, os
 
 parts = []
 
@@ -11,33 +11,34 @@ files = [
     "mimo_cmds2.py",
     "mimo_cmds3.py",
     "mimo_dispatch.py",
+    "mimo_server.py",
 ]
 
 for f in files:
     with open(f) as fh:
         content = fh.read()
-    # Remove shebang and docstring
     content = re.sub(r'^#!/.*\n', '', content)
     content = re.sub(r'^"""[^"]*"""', '', content, flags=re.DOTALL)
-    # Remove imports (they'll be at the top)
     content = re.sub(r'^from mimo_\w+ import.*\n', '', content, flags=re.MULTILINE)
     content = re.sub(r'^import os\n', '', content, flags=re.MULTILINE)
     parts.append(content.strip())
 
 # Read mimo_html.py for HTML, MANIFEST, SERVICE_WORKER
 with open("mimo_html.py") as fh:
-    html = fh.read()
-html = re.sub(r'^#!/.*\n', '', html)
-html = re.sub(r'^"""[^"]*"""', '', html, flags=re.DOTALL)
-parts.append(html.strip())
+    html_mod = fh.read()
+html_mod = re.sub(r'^#!/.*\n', '', html_mod)
+html_mod = re.sub(r'^"""[^"]*"""', '', html_mod, flags=re.DOTALL)
+parts.append(html_mod.strip())
 
-# Read chat.py for server + telegram bot
+# Read chat.py for server + telegram bot functions
 with open("chat.py") as fh:
     server = fh.read()
 server = re.sub(r'^#!/.*\n', '', server)
 server = re.sub(r'^"""[^"]*"""', '', server, flags=re.DOTALL)
-# Remove duplicate imports from chat.py
 server = re.sub(r'^from mimo_\w+ import.*\n', '', server, flags=re.MULTILINE)
+# Remove duplicate imports
+server = re.sub(r'^import os, sys, json.*\n', '', server, flags=re.MULTILINE)
+server = re.sub(r'^from http.server.*\n', '', server, flags=re.MULTILINE)
 parts.append(server.strip())
 
 combined = '''#!/usr/bin/env python3
