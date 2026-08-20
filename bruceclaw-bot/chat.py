@@ -21,11 +21,14 @@ def run(cmd, t=10):
     except: return "error"
 
 def speak(text):
-    """Non-blocking TTS via termux-tts-speak with timeout."""
+    """Non-blocking TTS with barge-in. Kills old TTS first."""
     cleaned = re.sub(r'[^a-zA-Z0-9 .,!?-]', '', text)[:200]
     if not cleaned: return
     try:
-        subprocess.Popen(["timeout","5","termux-tts-speak", cleaned],
+        subprocess.run(["pkill", "-f", "termux-tts"], timeout=3, capture_output=True)
+    except: pass
+    try:
+        subprocess.Popen(["timeout", "8", "termux-tts-speak", cleaned],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except: pass
 
@@ -171,7 +174,12 @@ class H(BaseHTTPRequestHandler):
             txt = d.get("text","").replace("'","'\\''")
             run(f"input text '{txt}'")
             self.js({"ok":True})
-        elif p == "/tts": speak(d.get('text','')); self.js({"ok":True})
+        elif p == "/tts":
+            if d.get("text"): speak(d["text"])
+            else:
+                try: subprocess.run(["pkill", "-f", "termux-tts"], timeout=3, capture_output=True)
+                except: pass
+            self.js({"ok":True})
         elif p == "/voice":
             audio_b64 = d.get("audio", "")
             if not audio_b64: self.js({"err":"no audio"}); return
@@ -279,6 +287,7 @@ else{add("Loading LLM...","mi");checkStatus();}});
 var mediaRecorder=null,audioChunks=[],contMode=false,stream=null;
 function startVoice(){var btn=document.getElementById("micbtn");
 if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();btn.textContent="🎤";btn.style.background="";return;}
+fetch("/tts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:""})});
 navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){stream=s;mediaRecorder=new MediaRecorder(s);audioChunks=[];
 mediaRecorder.ondataavailable=function(e){audioChunks.push(e.data);};mediaRecorder.onstop=function(){processAudio();};
 mediaRecorder.start();btn.textContent="⏹";btn.style.background="#f44";}).catch(function(e){add("Mic denied: "+e,"me");});}
