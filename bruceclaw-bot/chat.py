@@ -288,7 +288,7 @@ body{font-family:sans-serif;background:#0a0a0a;color:#fff;height:100dvh;display:
 <div id="c"><div class="mb">Connecting to MiMo...</div></div>
 <div id="i">
 <button class="ib" onclick="toggleAttach()">+</button>
-<input id="m" placeholder="Message..." onkeydown="if(event.key==='Enter')send()">
+<input id="m" placeholder="Message..." onkeydown="if(event.key==="Enter"){event.preventDefault();send()}">
 <button class="ib" onclick="send()">SEND</button>
 <button class="ib" id="micbtn" onclick="startVoice()">🎤</button>
 <button class="ib" id="contbtn" onclick="toggleCont()" style="font-size:11px">🔄</button>
