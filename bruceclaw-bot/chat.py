@@ -53,11 +53,15 @@ def speak(text):
     cleaned = re.sub(r'[^a-zA-Z0-9 .,!?-]', '', text)[:200]
     if not cleaned: return
     try:
-        subprocess.run(["pkill", "-f", "termux-tts"], timeout=3, capture_output=True)
+        subprocess.run(["pkill", "-9", "-f", "termux-tts"], timeout=3, capture_output=True)
     except: pass
     try:
-        subprocess.Popen(["termux-tts-speak", cleaned],
-                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # Use nohup + background to survive screen off
+        subprocess.Popen(
+            f'nohup termux-tts-speak "{cleaned}" > /dev/null 2>&1 &',
+            shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True
+        )
     except: pass
 
 # ============ MIMO BRAIN ============
