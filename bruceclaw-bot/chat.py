@@ -356,11 +356,59 @@ img.style.transform="rotate("+(Math.random()-0.5)*3+"deg) scale(1.01)";
 setTimeout(function(){img.style.transform="rotate(0deg) scale(1)";},2500);},6000);
 </script></body></html>"""
 
+
+# ============ TELEGRAM BOT ============
+TG_TOKEN = "8784176401:AAGEKNUai0aN5VR3nLOCJrKiQ5b9CNqr69Y"
+TG_API = f"https://api.telegram.org/bot{TG_TOKEN}"
+TG_OFFSET = 0
+TG_ALLOWED = set()  # empty = allow all, or add chat_ids
+
+def tg_send(chat_id, text):
+    """Send message to Telegram chat."""
+    import urllib.request, urllib.parse
+    url = f"{TG_API}/sendMessage"
+    data = urllib.parse.urlencode({"chat_id": chat_id, "text": text[:4000]}).encode()
+    try:
+        req = urllib.request.Request(url, data=data)
+        urllib.request.urlopen(req, timeout=10)
+    except Exception as e:
+        print(f"TG send error: {e}")
+
+def tg_poll():
+    """Poll Telegram for new messages, respond with MiMo brain."""
+    global TG_OFFSET
+    import urllib.request, urllib.parse
+    print("Telegram bot started")
+    while True:
+        try:
+            url = f"{TG_API}/getUpdates?offset={TG_OFFSET}&timeout=30"
+            req = urllib.request.Request(url)
+            resp = urllib.request.urlopen(req, timeout=35)
+            updates = json.loads(resp.read())
+            for u in updates.get("result", []):
+                TG_OFFSET = u["update_id"] + 1
+                msg = u.get("message", {})
+                chat_id = msg.get("chat", {}).get("id")
+                text = msg.get("text", "")
+                if not chat_id or not text: continue
+                if TG_ALLOWED and chat_id not in TG_ALLOWED:
+                    tg_send(chat_id, "Access denied."); continue
+                print(f"TG [{chat_id}]: {text}")
+                reply = mimo_chat(text)
+                clean = re.sub(r'<think>.*?</think>', '', reply, flags=re.DOTALL).strip()
+                tg_send(chat_id, clean or "No response")
+                print(f"TG reply: {clean[:80]}")
+        except Exception as e:
+            print(f"TG poll error: {e}")
+            time.sleep(5)
+
+
 if __name__ == "__main__":
     print("BruceClaw Chat + Phone Control")
     print(f"Chat: http://localhost:{PORT}")
     print("Loading MiMo brain...")
     t = threading.Thread(target=init_brain, daemon=True)
+    threading.Thread(target=tg_poll, daemon=True).start()
     t.start()
     print(f"Server starting on port {PORT}")
     ThreadedHTTPServer(("0.0.0.0",PORT),H).serve_forever()
