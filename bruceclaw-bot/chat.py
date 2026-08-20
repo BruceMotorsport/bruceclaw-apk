@@ -304,11 +304,12 @@ document.getElementById("c").appendChild(d);document.getElementById("c").scrollT
 if(c==="mb"){var a=document.getElementById("avatar");if(a)a.style.boxShadow="0 0 40px rgba(255,102,0,0.8)";
 var img=document.getElementById("avatarImg");if(img)img.style.animation="pulse 0.5s infinite alternate";
 setTimeout(function(){if(a)a.style.boxShadow="0 0 15px rgba(255,102,0,0.3)";if(img)img.style.animation="";},Math.min(t.length*50,3000));}}
+function speakText(t){try{if(!window.speechSynthesis)return;window.speechSynthesis.cancel();var u=new SpeechSynthesisUtterance(t);u.rate=0.9;u.pitch=1;window.speechSynthesis.speak(u);}catch(e){}}
 function send(){var m=document.getElementById("m").value.trim();if(!m)return;add(m,"mu");document.getElementById("m").value="";
 add("Thinking...","mi");
 fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:m})})
 .then(function(r){return r.json();}).then(function(d){var c=document.getElementById("c");
-if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");})
+if(c.lastChild)c.removeChild(c.lastChild);add(d.reply||"No response","mb");speakText(d.reply||"");})
 .catch(function(e){var c=document.getElementById("c");if(c.lastChild)c.removeChild(c.lastChild);add("Error: "+e,"me");});}
 function toggleAttach(){var m=document.getElementById("am");m.style.display=m.style.display==="none"?"block":"none";}
 function pickFile(){document.getElementById("fileInput").click();document.getElementById("am").style.display="none";}
