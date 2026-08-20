@@ -150,7 +150,7 @@ def mimo_chat(msg):
             try:
                 import urllib.request, urllib.parse
                 encoded = urllib.parse.quote(question)
-                url = "http://192.168.1.53:8888/support?question=" + encoded
+                url = "http://192.168.1.53:9876/support?question=" + encoded
                 resp = urllib.request.urlopen(url, timeout=30)
                 data = json.loads(resp.read())
                 return "Simone says: " + data.get("answer", "No response")
