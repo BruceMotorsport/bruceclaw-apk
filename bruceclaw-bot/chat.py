@@ -28,7 +28,7 @@ def speak(text):
         subprocess.run(["pkill", "-f", "termux-tts"], timeout=3, capture_output=True)
     except: pass
     try:
-        subprocess.Popen(["timeout", "8", "termux-tts-speak", cleaned],
+        subprocess.Popen(["termux-tts-speak", cleaned],
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except: pass
 
