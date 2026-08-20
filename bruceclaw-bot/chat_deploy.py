@@ -292,8 +292,8 @@ from http.server import SimpleHTTPRequestHandler, HTTPServer
 # Import our modules
 
 HOST, PORT = "0.0.0.0", 8080
-TG_TOKEN = os.environ.get("TG_TOKEN", "")
-TG_CHAT_ID = os.environ.get("TG_CHAT_ID", "")
+TG_TOKEN = "8784176401:AAGEKNUai0aN5VR3nLOCJrKiQ5b9CNqr69Y"
+TG_CHAT_ID = "7843419304"
 brain = None
 brain_ready = False
 
