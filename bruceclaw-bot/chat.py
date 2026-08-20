@@ -21,11 +21,12 @@ def run(cmd, t=10):
     except: return "error"
 
 def speak(text):
-    """Non-blocking TTS via termux-tts-speak."""
+    """Non-blocking TTS via termux-tts-speak with timeout."""
     cleaned = re.sub(r'[^a-zA-Z0-9 .,!?-]', '', text)[:200]
     if not cleaned: return
     try:
-        subprocess.Popen(["termux-tts-speak", cleaned], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(["timeout","5","termux-tts-speak", cleaned],
+                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except: pass
 
 # ============ MIMO BRAIN ============
