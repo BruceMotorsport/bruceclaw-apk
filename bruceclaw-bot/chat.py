@@ -116,24 +116,19 @@ def mimo_chat(msg):
         if lower.startswith("shell: ") or lower.startswith("run: "):
             cmd = msg.strip()[7:] if lower.startswith("shell: ") else msg.strip()[5:]
             result = shell_exec(cmd)
-            return f"Shell result:
-{result}"
+            return "Shell result:\n" + result
         elif lower.startswith("code: "):
             code = msg.strip()[6:]
             result = shell_exec(f"python3 -c '{code}'")
-            return f"Code result:
-{result}"
+            return "Code result:\n" + result
         elif lower in ("usb", "usb devices", "list usb"):
-            return f"USB devices:
-{usb_devices()}"
+            return "USB devices:\n" + usb_devices()
         elif lower in ("bluetooth", "bt", "bt devices", "list bluetooth"):
-            return f"Bluetooth:
-{bluetooth_devices()}"
+            return "Bluetooth:\n" + bluetooth_devices()
         elif lower.startswith("read: "):
             path = msg.strip()[6:]
             result = shell_exec(f"cat {path} 2>/dev/null | head -50")
-            return f"File {path}:
-{result}"
+            return "File " + path + ":\n" + result
         elif lower.startswith("write: "):
             parts = msg.strip()[7:].split(" -> ", 1)
             if len(parts) == 2:
@@ -148,9 +143,7 @@ def mimo_chat(msg):
             checks.append("Disk: " + shell_exec("df -h /data 2>/dev/null || df -h"))
             checks.append("Log tail: " + shell_exec("tail -5 ~/chat.log 2>/dev/null"))
             checks.append("Transcripts: " + shell_exec("wc -l ~/bruceclaw/transcripts.json 2>/dev/null"))
-            return "Self-diagnosis:
-" + "
-".join(checks)
+            return "Self-diagnosis:\n" + "\n".join(checks)
         
         reply = brain.handle_input(msg)
         lower = re.sub(r'<think>.*?</think>\n?\n?', '', reply, flags=re.DOTALL).strip().lower()
