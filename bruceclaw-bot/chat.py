@@ -145,11 +145,12 @@ def mimo_chat(msg):
             checks.append("Transcripts: " + shell_exec("wc -l ~/bruceclaw/transcripts.json 2>/dev/null"))
             return "Self-diagnosis:\n" + "\n".join(checks)
         
-        elif lower.startswith("support: ") or lower.startswith("ask simone: "):
+        elif lower.startswith("support:") or lower.startswith("ask simone:"):
             question = msg.strip().split(":", 1)[1].strip()
             try:
-                import urllib.request
-                url = f"http://192.168.1.53:8888/support?question={question}"
+                import urllib.request, urllib.parse
+                encoded = urllib.parse.quote(question)
+                url = "http://192.168.1.53:8888/support?question=" + encoded
                 resp = urllib.request.urlopen(url, timeout=30)
                 data = json.loads(resp.read())
                 return "Simone says: " + data.get("answer", "No response")
