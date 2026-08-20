@@ -87,11 +87,71 @@ def init_brain():
     except Exception as e:
         print(f"[ERROR] Failed to load MiMo brain: {e}")
 
+def shell_exec(cmd):
+    """Execute shell command on the phone."""
+    try:
+        r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        out = r.stdout + r.stderr
+        return out[:2000] if out else "OK (no output)"
+    except subprocess.TimeoutExpired:
+        return "Command timed out after 30s"
+    except Exception as e:
+        return f"Error: {e}"
+
+def usb_devices():
+    """List USB devices connected to phone."""
+    return shell_exec("lsusb 2>/dev/null || cat /sys/bus/usb/devices/*/product 2>/dev/null || echo No USB tools available")
+
+def bluetooth_devices():
+    """List Bluetooth devices."""
+    return shell_exec("termux-bluetooth-info 2>/dev/null || echo Bluetooth info not available")
+
 def mimo_chat(msg):
     global brain, brain_ready
     if not brain: return "MiMo brain not loaded"
     if not brain_ready: return "MiMo is starting up, try again in a few seconds"
     try:
+        # Shell execution commands
+        lower = msg.strip().lower()
+        if lower.startswith("shell: ") or lower.startswith("run: "):
+            cmd = msg.strip()[7:] if lower.startswith("shell: ") else msg.strip()[5:]
+            result = shell_exec(cmd)
+            return f"Shell result:
+{result}"
+        elif lower.startswith("code: "):
+            code = msg.strip()[6:]
+            result = shell_exec(f"python3 -c '{code}'")
+            return f"Code result:
+{result}"
+        elif lower in ("usb", "usb devices", "list usb"):
+            return f"USB devices:
+{usb_devices()}"
+        elif lower in ("bluetooth", "bt", "bt devices", "list bluetooth"):
+            return f"Bluetooth:
+{bluetooth_devices()}"
+        elif lower.startswith("read: "):
+            path = msg.strip()[6:]
+            result = shell_exec(f"cat {path} 2>/dev/null | head -50")
+            return f"File {path}:
+{result}"
+        elif lower.startswith("write: "):
+            parts = msg.strip()[7:].split(" -> ", 1)
+            if len(parts) == 2:
+                path, content = parts
+                result = shell_exec(f"echo '{content}' > {path}")
+                return f"Written to {path}: {result}"
+            return "Usage: write: path -> content"
+        elif lower in ("fix yourself", "self repair", "self-repair", "diagnose"):
+            checks = []
+            checks.append("Processes: " + shell_exec("ps | grep python3 | grep -v grep"))
+            checks.append("Memory: " + shell_exec("free -m 2>/dev/null || cat /proc/meminfo | head -3"))
+            checks.append("Disk: " + shell_exec("df -h /data 2>/dev/null || df -h"))
+            checks.append("Log tail: " + shell_exec("tail -5 ~/chat.log 2>/dev/null"))
+            checks.append("Transcripts: " + shell_exec("wc -l ~/bruceclaw/transcripts.json 2>/dev/null"))
+            return "Self-diagnosis:
+" + "
+".join(checks)
+        
         reply = brain.handle_input(msg)
         lower = re.sub(r'<think>.*?</think>\n?\n?', '', reply, flags=re.DOTALL).strip().lower()
         action_done = ""
